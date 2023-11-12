@@ -319,13 +319,17 @@ export const Chat = memo(({ stopConversationRef,
           };
         }
 
-        let assistantResponse;
+        let assistantResponse: Message;
 
         // Cognitive Searchに問い合わせる
         try {
           const result = await askApi(request, undefined);
           const jsonData = JSON.parse(JSON.stringify(result));
-          assistantResponse = jsonData.choices[0].message;
+          assistantResponse = {...jsonData.choices[0].message};
+          assistantResponse.detail = {...jsonData};
+          // assistantResponse.content = assistantResponse.content;
+
+
         } catch (e) {
           assistantResponse = { role: 'assistant', content: 'エラーです' };
           console.log(e);

@@ -5,6 +5,7 @@ import {
   IconRobot,
   IconTrash,
   IconUser,
+  IconBulb
 } from '@tabler/icons-react';
 import { FC, memo, useContext, useEffect, useRef, useState } from 'react';
 
@@ -22,6 +23,7 @@ import { MemoizedReactMarkdown } from '../Markdown/MemoizedReactMarkdown';
 import rehypeMathjax from 'rehype-mathjax';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import PopupWindow from './PopupWindow';
 
 export interface Props {
   message: Message;
@@ -123,6 +125,16 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [isEditing]);
+
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const openDetailWindow = () => {
+    setIsDetailOpen(true);
+  };
+
+  const closeDetailWindow = () => {
+    setIsDetailOpen(false);
+  };
 
   return (
     <div
@@ -265,6 +277,11 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
                   messageIsStreaming && messageIndex == (selectedConversation?.messages.length ?? 0) - 1 ? '`▍`' : ''
                 }`}
               </MemoizedReactMarkdown>
+                <div className="absolute top-3 right-0 mt-2 mr-2"> {/* アイコンにabsoluteスタイルを適用 */}
+                  <div className="cursor-pointer" onClick={openDetailWindow}>
+                    <IconBulb size={20} className="text-yellow-500 dark:text-yellow-400" /> {/* 電球アイコン */}
+                  </div>
+                </div>
 
               <div className="md:-mr-8 ml-1 md:ml-0 flex flex-col md:flex-row gap-4 md:gap-1 items-center md:items-start justify-end md:justify-start">
                 {messagedCopied ? (
@@ -285,6 +302,13 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
           )}
         </div>
       </div>
+          {/* PopupWindowコンポーネントを表示 */}
+          {isDetailOpen && (
+        <PopupWindow
+          messageDetail={message.detail || ""}
+          onClose={closeDetailWindow}
+        />
+      )}  
     </div>
   );
 });
