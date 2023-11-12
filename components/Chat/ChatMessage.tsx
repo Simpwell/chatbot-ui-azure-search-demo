@@ -24,11 +24,17 @@ import rehypeMathjax from 'rehype-mathjax';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import PopupWindow from './PopupWindow';
+import { getCitationFilePath } from '@/pages/api/api';
 
 export interface Props {
   message: Message;
   messageIndex: number;
   onEdit?: (editedMessage: Message) => void
+}
+
+interface Link {
+  index: number;
+  link: string;
 }
 
 export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) => {
@@ -114,9 +120,33 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
     });
   };
 
+  // 引用の解析と置換
+  const [processedMessage, setProcessedMessage] = useState<string>("");
+  const [links, setLinks] = useState<Link[]>([]);
+
   useEffect(() => {
-    setMessageContent(message.content);
-  }, [message.content]);
+    if (message.role === 'assistant') {
+      const citationRegex = /\[([^\]]+)\]/g;
+      let citationIndex = 1;
+      const citations: Record<string, number> = {};
+      const newProcessedMessage = message.content.replace(citationRegex, (match, citation) => {
+        if (!(citation in citations)) {
+          citations[citation] = citationIndex++;
+        }
+        return `[${citations[citation]}]`;
+      });
+
+      const newLinks = Object.keys(citations).map(citation => {
+        return { index: citations[citation], link: citation };
+      });
+
+      setProcessedMessage(newProcessedMessage);
+      setLinks(newLinks);
+    } else {
+      setProcessedMessage(message.content);
+      setLinks([]);
+    }
+  }, [message.content, message.role]);
 
 
   useEffect(() => {
@@ -138,11 +168,10 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
 
   return (
     <div
-      className={`group md:px-4 ${
-        message.role === 'assistant'
-          ? 'border-b border-black/10 bg-gray-50 text-gray-800 dark:border-gray-900/50 dark:bg-[#444654] dark:text-gray-100'
-          : 'border-b border-black/10 bg-white text-gray-800 dark:border-gray-900/50 dark:bg-[#343541] dark:text-gray-100'
-      }`}
+      className={`group md:px-4 ${message.role === 'assistant'
+        ? 'border-b border-black/10 bg-gray-50 text-gray-800 dark:border-gray-900/50 dark:bg-[#444654] dark:text-gray-100'
+        : 'border-b border-black/10 bg-white text-gray-800 dark:border-gray-900/50 dark:bg-[#343541] dark:text-gray-100'
+        }`}
       style={{ overflowWrap: 'anywhere' }}
     >
       <div className="relative m-auto flex p-4 text-base md:max-w-2xl md:gap-6 md:py-6 lg:max-w-2xl lg:px-0 xl:max-w-3xl">
@@ -220,7 +249,7 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
               )}
             </div>
           ) : (
-            <div className="flex flex-row">
+            <div className="flex flex-col">
               <MemoizedReactMarkdown
                 className="prose dark:prose-invert flex-1"
                 remarkPlugins={[remarkGfm, remarkMath]}
@@ -273,15 +302,23 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
                   },
                 }}
               >
-                {`${message.content}${
-                  messageIsStreaming && messageIndex == (selectedConversation?.messages.length ?? 0) - 1 ? '`▍`' : ''
-                }`}
+
+                {processedMessage}
               </MemoizedReactMarkdown>
-                <div className="absolute top-3 right-0 mt-2 mr-2"> {/* アイコンにabsoluteスタイルを適用 */}
-                  <div className="cursor-pointer" onClick={openDetailWindow}>
-                    <IconBulb size={20} className="text-yellow-500 dark:text-yellow-400" /> {/* 電球アイコン */}
-                  </div>
+              {links && links.length > 0 && (
+                <div className="links-list">
+                  {links.map(({ index, link }) => (
+                    <div key={index}>
+                      <a href={getCitationFilePath(link)} target="_blank" rel="noopener noreferrer">{`[${index}]: ${link}`}</a>
+                    </div>
+                  ))}
                 </div>
+              )}
+              <div className="absolute top-3 right-0 mt-2 mr-2"> {/* アイコンにabsoluteスタイルを適用 */}
+                <div className="cursor-pointer" onClick={openDetailWindow}>
+                  <IconBulb size={20} className="text-yellow-500 dark:text-yellow-400" /> {/* 電球アイコン */}
+                </div>
+              </div>
 
               <div className="md:-mr-8 ml-1 md:ml-0 flex flex-col md:flex-row gap-4 md:gap-1 items-center md:items-start justify-end md:justify-start">
                 {messagedCopied ? (
@@ -302,13 +339,13 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
           )}
         </div>
       </div>
-          {/* PopupWindowコンポーネントを表示 */}
-          {isDetailOpen && (
+      {/* PopupWindowコンポーネントを表示 */}
+      {isDetailOpen && (
         <PopupWindow
           messageDetail={message.detail || ""}
           onClose={closeDetailWindow}
         />
-      )}  
+      )}
     </div>
   );
 });

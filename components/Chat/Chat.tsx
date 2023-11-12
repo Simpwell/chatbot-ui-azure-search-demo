@@ -327,7 +327,8 @@ export const Chat = memo(({ stopConversationRef,
           const jsonData = JSON.parse(JSON.stringify(result));
           assistantResponse = {...jsonData.choices[0].message};
           assistantResponse.detail = {...jsonData};
-          // assistantResponse.content = assistantResponse.content;
+          assistantResponse.content = assistantResponse.content;
+          
 
 
         } catch (e) {
