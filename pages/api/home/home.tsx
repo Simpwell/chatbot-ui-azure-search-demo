@@ -40,6 +40,8 @@ import HomeContext from './home.context';
 import { HomeInitialState, initialState } from './home.state';
 
 import { v4 as uuidv4 } from 'uuid';
+import SearchComponent from '@/components/Searchbar/Searchbar';
+import { RetrievalMode } from '../models2';
 
 interface Props {
   serverSideApiKeyIsSet: boolean;
@@ -56,6 +58,19 @@ const Home = ({
   const { getModels } = useApiService();
   const { getModelsError } = useErrorService();
   const [initialRender, setInitialRender] = useState<boolean>(true);
+
+  // Added for SearchComponent
+  const [promptTemplate, setPromptTemplate] = useState<string>("");
+  const [retrieveCount, setRetrieveCount] = useState<number>(3);
+  const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>(RetrievalMode.Hybrid);
+  const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(true);
+  const [shouldStream, setShouldStream] = useState<boolean>(true);
+  const [useSemanticCaptions, setUseSemanticCaptions] = useState<boolean>(false);
+  const [excludeCategory, setExcludeCategory] = useState<string>("");
+  const [useSuggestFollowupQuestions, setUseSuggestFollowupQuestions] = useState<boolean>(false);
+  const [useOidSecurityFilter, setUseOidSecurityFilter] = useState<boolean>(false);
+  const [useGroupsSecurityFilter, setUseGroupsSecurityFilter] = useState<boolean>(false);
+  
 
   const contextValue = useCreateReducer<HomeInitialState>({
     initialState,
@@ -347,6 +362,13 @@ const Home = ({
     serverSidePluginKeysSet,
   ]);
 
+  // Added for SearchComponent
+  const [selectedTab, setSelectedTab] = useState('chat');
+  const handleTabChange = (tab: 'chat' | 'search') => {
+    setSelectedTab(tab);
+    handleNewConversation();
+  }
+
   return (
     <HomeContext.Provider
       value={{
@@ -381,12 +403,38 @@ const Home = ({
 
           <div className="flex h-full w-full pt-[48px] sm:pt-0">
             <Chatbar />
-
-            <div className="flex flex-1">
-              <Chat stopConversationRef={stopConversationRef} />
+            <Chat stopConversationRef={stopConversationRef}
+              selectedTab={selectedTab}
+              promptTemplate={promptTemplate}
+              retrieveCount={retrieveCount}
+              excludeCategory={excludeCategory}
+              useSemanticRanker={useSemanticRanker}
+              useSemanticCaptions={useSemanticCaptions}
+              retrievalMode={retrievalMode}
+            />
+            <div className="flex flex-col">
+              <div className="flex justify-center space-x-4 p-2 border-b">
+                <button onClick={() => handleTabChange('chat')} className="btn">Chat</button>
+                <button onClick={() => handleTabChange('search')} className="btn">Search</button>
+              </div>
+              <div className="flex-1">
+                {selectedTab === 'chat' ? <Promptbar /> : <SearchComponent
+                  setPromptTemplate={setPromptTemplate}
+                  promptTemplate={promptTemplate}
+                  setRetrieveCount={setRetrieveCount}
+                  retrieveCount={retrieveCount}
+                  excludeCategory={excludeCategory}
+                  setExcludeCategory={setExcludeCategory}
+                  useSemanticRanker={useSemanticRanker}
+                  setUseSemanticRanker={setUseSemanticRanker}
+                  useSemanticCaptions={useSemanticCaptions}
+                  setUseSemanticCaptions={setUseSemanticCaptions}
+                  retrievalMode={retrievalMode}
+                  setRetrievalMode={setRetrievalMode}
+                />}
+              </div>
             </div>
 
-            <Promptbar />
           </div>
         </main>
       )}

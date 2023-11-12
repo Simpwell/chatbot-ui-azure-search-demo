@@ -35,6 +35,8 @@ interface Props {
   stopConversationRef: MutableRefObject<boolean>;
   textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
   showScrollDownButton: boolean;
+  selectedTab: string; //TY
+  onSearch: (message: Message, plugin: Plugin | null) => void; //TY
 }
 
 export const ChatInput = ({
@@ -44,6 +46,8 @@ export const ChatInput = ({
   stopConversationRef,
   textareaRef,
   showScrollDownButton,
+  selectedTab, //TY
+  onSearch, //TY
 }: Props) => {
   const { t } = useTranslation('chat');
 
@@ -97,7 +101,12 @@ export const ChatInput = ({
       return;
     }
 
-    onSend({ role: 'user', content }, plugin);
+    if (selectedTab === 'chat') {
+      onSend({ role: 'user', content }, plugin);
+    } else {
+      onSearch({ role: 'user', content }, plugin);
+    }
+
     setContent('');
     setPlugin(null);
 

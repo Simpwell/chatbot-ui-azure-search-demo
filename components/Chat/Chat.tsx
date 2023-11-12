@@ -33,12 +33,28 @@ import { ModelSelect } from './ModelSelect';
 import { SystemPrompt } from './SystemPrompt';
 import { TemperatureSlider } from './Temperature';
 import { MemoizedChatMessage } from './MemoizedChatMessage';
+import { ChatAppRequest, RetrievalMode } from '@/pages/api/models2';
+import { askApi } from '@/pages/api/api';
 
 interface Props {
   stopConversationRef: MutableRefObject<boolean>;
+  selectedTab: string;
+  promptTemplate: string;
+  retrieveCount: number;
+  excludeCategory: string;
+  useSemanticRanker:boolean;
+  useSemanticCaptions:boolean;
+  retrievalMode:RetrievalMode; 
 }
 
-export const Chat = memo(({ stopConversationRef }: Props) => {
+export const Chat = memo(({ stopConversationRef, 
+  selectedTab,
+  promptTemplate,
+  retrieveCount,
+  excludeCategory,
+  useSemanticRanker,
+  useSemanticCaptions,
+  retrievalMode, }: Props) => {
   const { t } = useTranslation('chat');
 
   const {
@@ -253,6 +269,103 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
       stopConversationRef,
     ],
   );
+
+  // Added for Demo
+  const handleSearch = useCallback(
+    async (message: Message, deleteCount = 0, plugin: Plugin | null = null) => {
+
+      const request: ChatAppRequest = {
+        messages: [
+          message
+        ],
+        context: {
+          overrides: {
+            prompt_template: promptTemplate.length === 0 ? undefined : promptTemplate,
+            // prompt_template_prefix: promptTemplatePrefix.length === 0 ? undefined : promptTemplatePrefix,
+            // prompt_template_suffix: promptTemplateSuffix.length === 0 ? undefined : promptTemplateSuffix,
+            prompt_template_prefix: undefined,
+            prompt_template_suffix: undefined,
+            exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
+            top: retrieveCount,
+            retrieval_mode: retrievalMode,
+            semantic_ranker: useSemanticRanker,
+            semantic_captions: useSemanticCaptions,
+            // use_oid_security_filter: useOidSecurityFilter,
+            // use_groups_security_filter: useGroupsSecurityFilter
+            use_oid_security_filter: undefined,
+            use_groups_security_filter: undefined
+          }
+        },
+        // ChatAppProtocol: Client must pass on any session state received from the server
+        // session_state: answer ? answer.choices[0].session_state : null
+        session_state: null //不明
+      };
+
+      if (selectedConversation) {
+        let updatedConversation: Conversation;
+        if (deleteCount) {
+          const updatedMessages = [...selectedConversation.messages];
+          for (let i = 0; i < deleteCount; i++) {
+            updatedMessages.pop();
+          }
+          updatedConversation = {
+            ...selectedConversation,
+            messages: [...updatedMessages, message],
+          };
+        } else {
+          updatedConversation = {
+            ...selectedConversation,
+            messages: [...selectedConversation.messages, message],
+          };
+        }
+
+        let assistantResponse;
+
+        // Cognitive Searchに問い合わせる
+        try {
+          const result = await askApi(request, undefined);
+          const jsonData = JSON.parse(JSON.stringify(result));
+          assistantResponse = jsonData.choices[0].message;
+        } catch (e) {
+          assistantResponse = { role: 'assistant', content: 'エラーです' };
+          console.log(e);
+        }
+        // 更新された会話に応答を追加
+        updatedConversation.messages.push(assistantResponse);
+
+        // 更新された会話をディスパッチ
+        homeDispatch({
+          field: 'selectedConversation',
+          value: updatedConversation,
+        });
+
+        // その他のUI更新や保存処理
+        saveConversation(updatedConversation);
+        const updatedConversations: Conversation[] = conversations.map(
+          (conversation) => {
+            if (conversation.id === selectedConversation.id) {
+              return updatedConversation;
+            }
+            return conversation;
+          },
+        );
+        if (updatedConversations.length === 0) {
+          updatedConversations.push(updatedConversation);
+        }
+        homeDispatch({ field: 'conversations', value: updatedConversations });
+        saveConversations(updatedConversations);
+        homeDispatch({ field: 'loading', value: false });
+        homeDispatch({ field: 'messageIsStreaming', value: false });
+      }
+    },
+    [
+      conversations,
+      selectedConversation,
+      saveConversation,
+      saveConversations,
+      homeDispatch,
+    ],
+  );  
 
   const scrollToBottom = useCallback(() => {
     if (autoScrollEnabled) {
@@ -490,11 +603,16 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
           </div>
 
           <ChatInput
+            selectedTab={selectedTab} // TY
             stopConversationRef={stopConversationRef}
             textareaRef={textareaRef}
             onSend={(message, plugin) => {
               setCurrentMessage(message);
               handleSend(message, 0, plugin);
+            }}
+            onSearch={(message, plugin) => {
+              setCurrentMessage(message);
+              handleSearch(message, 0, plugin);
             }}
             onScrollDownClick={handleScrollDown}
             onRegenerate={() => {
